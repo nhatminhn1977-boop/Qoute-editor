@@ -206,8 +206,22 @@ def fit_image_to_box(img, box_w, box_h):
     new_w = max(1, int(img.width * ratio))
     new_h = max(1, int(img.height * ratio))
     return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+def clamp_position(x, y):
+    if background_image is None:
+        return x, y
+    x = min(max(0, x), max(0, original_w - 1))
+    y = min(max(0, y), max(0, original_h - 1))
+    return x, y
+def update_coordinate_inputs():
+    if "quote_x_var" not in globals() or "author_x_var" not in globals():
+        return
+    quote_x_var.set(str(quote_pos[0]))
+    quote_y_var.set(str(quote_pos[1]))
+    author_x_var.set(str(author_pos[0]))
+    author_y_var.set(str(author_pos[1]))
 def update_preview(*args):
     global preview_img, final_image, preview_display_w, preview_display_h
+    update_coordinate_inputs()
     if background_image is None:
         final_image = None
         preview_img = None
@@ -311,13 +325,37 @@ def drag(event):
     if drag_target == "quote":
         quote_pos[0] = int(event.x * scale_x)
         quote_pos[1] = int(event.y * scale_y)
+        quote_pos[0], quote_pos[1] = clamp_position(quote_pos[0], quote_pos[1])
     else:
         author_pos[0] = int(event.x * scale_x)
         author_pos[1] = int(event.y * scale_y)
+        author_pos[0], author_pos[1] = clamp_position(author_pos[0], author_pos[1])
     update_preview()
 def stop_drag(event):
     global drag_target
     drag_target = None
+def apply_quote_position(event=None):
+    try:
+        x = int(quote_x_var.get().strip())
+        y = int(quote_y_var.get().strip())
+    except ValueError:
+        messagebox.showwarning("Invalid quote position", "Tọa độ quote phải là số nguyên.")
+        update_coordinate_inputs()
+        return
+    x, y = clamp_position(x, y)
+    quote_pos[0], quote_pos[1] = x, y
+    update_preview()
+def apply_author_position(event=None):
+    try:
+        x = int(author_x_var.get().strip())
+        y = int(author_y_var.get().strip())
+    except ValueError:
+        messagebox.showwarning("Invalid author position", "Tọa độ author phải là số nguyên.")
+        update_coordinate_inputs()
+        return
+    x, y = clamp_position(x, y)
+    author_pos[0], author_pos[1] = x, y
+    update_preview()
 def choose_quote_color():
     global quote_color
     c = colorchooser.askcolor()[1]
@@ -406,16 +444,39 @@ author_size = tk.Scale(left, from_=15, to=80, orient="horizontal", label="Author
 author_size.set(30)
 author_size.pack(fill="x")
 tk.Button(left, text="Author Color", command=choose_author_color).pack(fill="x", pady=(4, 10))
+make_section_label(left, "Tọa độ Qoute/Author", pady=(6, 2))
+quote_x_var = tk.StringVar(value=str(quote_pos[0]))
+quote_y_var = tk.StringVar(value=str(quote_pos[1]))
+author_x_var = tk.StringVar(value=str(author_pos[0]))
+author_y_var = tk.StringVar(value=str(author_pos[1]))
+quote_pos_frame = tk.Frame(left, bg="#2a3142")
+quote_pos_frame.pack(fill="x", pady=(0, 6))
+tk.Label(quote_pos_frame, text="Quote X", bg="#2a3142", fg="white").grid(row=0, column=0, sticky="w")
+quote_x_entry = tk.Entry(quote_pos_frame, textvariable=quote_x_var, width=8)
+quote_x_entry.grid(row=0, column=1, padx=(6, 12))
+tk.Label(quote_pos_frame, text="Y", bg="#2a3142", fg="white").grid(row=0, column=2, sticky="w")
+quote_y_entry = tk.Entry(quote_pos_frame, textvariable=quote_y_var, width=8)
+quote_y_entry.grid(row=0, column=3, padx=(6, 0))
+tk.Button(quote_pos_frame, text="Áp dụng", command=apply_quote_position).grid(row=0, column=4, padx=(8, 0))
+author_pos_frame = tk.Frame(left, bg="#2a3142")
+author_pos_frame.pack(fill="x", pady=(0, 10))
+tk.Label(author_pos_frame, text="Author X", bg="#2a3142", fg="white").grid(row=0, column=0, sticky="w")
+author_x_entry = tk.Entry(author_pos_frame, textvariable=author_x_var, width=8)
+author_x_entry.grid(row=0, column=1, padx=(6, 12))
+tk.Label(author_pos_frame, text="Y", bg="#2a3142", fg="white").grid(row=0, column=2, sticky="w")
+author_y_entry = tk.Entry(author_pos_frame, textvariable=author_y_var, width=8)
+author_y_entry.grid(row=0, column=3, padx=(6, 0))
+tk.Button(author_pos_frame, text="Áp dụng", command=apply_author_position).grid(row=0, column=4, padx=(8, 0))
 make_section_label(left, "Quote Outline", pady=(6, 2))
 quote_outline_slider = tk.Scale(left, from_=0, to=10, orient="horizontal", label="Width", command=update_quote_outline)
 quote_outline_slider.set(2)
 quote_outline_slider.pack(fill="x")
-tk.Button(left, text="Quote Outline Color", command=choose_quote_outline_color).pack(fill="x", pady=(4, 10))
+tk.Button(left, text="Màu viền của Quote(click)", command=choose_quote_outline_color).pack(fill="x", pady=(4, 10))
 make_section_label(left, "Author Outline", pady=(6, 2))
 author_outline_slider = tk.Scale(left, from_=0, to=10, orient="horizontal", label="Width", command=update_author_outline)
 author_outline_slider.set(2)
 author_outline_slider.pack(fill="x")
-tk.Button(left, text="Author Outline Color", command=choose_author_outline_color).pack(fill="x", pady=(4, 10))
+tk.Button(left, text="Màu viền của Author(click)", command=choose_author_outline_color).pack(fill="x", pady=(4, 10))
 make_section_label(left, "Save Settings", pady=(6, 4))
 make_section_label(left, "File Name", pady=(0, 4))
 save_name_var = tk.StringVar(value="quote_output")
@@ -430,6 +491,10 @@ make_section_label(left, "Hướng dẫn format + cách dùng", pady=(6, 4))
 admin_notes = tk.Text(left, height=6, wrap="word")
 admin_notes.pack(fill="x", pady=(0, 10))
 admin_notes.insert("1.0", "- Dùng **<text>** để in đậm chữ\n- Dùng __<text>__ để in nghiêng chữ\n- Dùng \\n để xuống dòng\n- Kéo dấu + để đổi vị trí quote/author\nREALLY BY FORGOTTEN\nThank you for using my tools :>")
+for entry in (quote_x_entry, quote_y_entry):
+    entry.bind("<Return>", apply_quote_position)
+for entry in (author_x_entry, author_y_entry):
+    entry.bind("<Return>", apply_author_position)
 preview_label.bind("<Button-1>", start_drag)
 preview_label.bind("<B1-Motion>", drag)
 preview_label.bind("<ButtonRelease-1>", stop_drag)
